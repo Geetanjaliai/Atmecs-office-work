@@ -1,12 +1,10 @@
 package com.task.odapi.transform;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import com.task.odapi.model.*;
 import com.task.odapi.util.OD_API_CONSTANTS;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ResourceUtils;
 
@@ -21,8 +19,6 @@ import java.util.stream.Collectors;
 public class ODAPITransformImpl implements ODAPITransform {
 
     private static final Logger log = LoggerFactory.getLogger(OD_API_CONSTANTS.LOG_MODULE_NAME.getValue());
-    @Autowired
-    ObjectMapper objectMapper;
 
     /*Reading the routes.json file and set the data to respective pojo class*/
     @Override
@@ -31,14 +27,14 @@ public class ODAPITransformImpl implements ODAPITransform {
         List<Routes> routesList = null;
         RouteRequest routeRequest=new RouteRequest();
         try {
-        Gson gson = new Gson();
-        File file= ResourceUtils.getFile("classpath:routes.json");
-        String content=new String(Files.readAllBytes(file.toPath()));
-        routeRequest=gson.fromJson(content,RouteRequest.class);
-    }
+            Gson gson = new Gson();
+            File file= ResourceUtils.getFile("classpath:routes.json");
+            String content=new String(Files.readAllBytes(file.toPath()));
+            routeRequest=gson.fromJson(content,RouteRequest.class);
+        }
         catch (FileNotFoundException noFile) {
-        log.warn("File not found");
-    } catch (IOException e) {
+            log.warn("File not found");
+        } catch (IOException e) {
             log.error("Error in reading the file");
         }
         routesList=routeRequest.getRoutes();
@@ -80,7 +76,6 @@ public class ODAPITransformImpl implements ODAPITransform {
         } catch (IOException e) {
             log.error("Error in reading the file");
         }
-
         regionRequest.getRegions().stream().filter(Objects::nonNull).map(regions -> {
             RegionResponse regionResponse = new RegionResponse();
             regionResponse.setCode(regions.getRegionCode());
@@ -97,10 +92,10 @@ public class ODAPITransformImpl implements ODAPITransform {
         HashMap<String, CountriesResponse> countriesResponseHashMap = new HashMap<String, CountriesResponse>();
         CountriesRequest countriesRequest=null;
         try {
-        Gson gson = new Gson();
-        File file= ResourceUtils.getFile("classpath:countries.json");
-        String content=new String(Files.readAllBytes(file.toPath()));
-        countriesRequest=gson.fromJson(content,CountriesRequest.class);
+            Gson gson = new Gson();
+            File file= ResourceUtils.getFile("classpath:countries.json");
+            String content=new String(Files.readAllBytes(file.toPath()));
+            countriesRequest=gson.fromJson(content,CountriesRequest.class);
         }
         catch (FileNotFoundException noFile) {
             log.warn("File not found");
@@ -124,7 +119,6 @@ public class ODAPITransformImpl implements ODAPITransform {
         AirportResponse airportResponse = null;
         HashMap<String, AirportResponse> originResponseHashMap = null;
         List<Airports> airportListData = null;
-
 
         Gson gson = new Gson();
         File file= null;
@@ -157,6 +151,27 @@ public class ODAPITransformImpl implements ODAPITransform {
                         Collectors.mapping(Airports::getIATAAirportCode, Collectors.toList())));
         originResponseHashMap = new HashMap<String, AirportResponse>();
         for (Airports airport : airportListData) {
+            if (airport.getMetropolitanAreaCode() != null) {
+                airportResponse = new AirportResponse();
+                airportResponse.setCode(airport.getMetropolitanAreaCode());
+                airportResponse.setCity(airport.getMetropolitanAreaName());
+                airportResponse.setName(airport.getMetropolitanAreaName());
+                airportResponse.setDefaultDisplayName(airport.getMetropolitanAreaName());
+                airportResponse.setStateCode(airport.getStateCode() == null ? "" : airport.getStateCode());
+                airportResponse.setCountryCode(airport.getCountryCode2());
+                airportResponse.setCountryName(
+                        countryList.stream().filter(code -> code.getCountryCode2().equalsIgnoreCase(airport.getCountryCode2()))
+                                .findAny().get().getCountryName());
+                airportResponse.setBlueCity(airport.getIsJetBlue());
+                airportResponse.setPreClearedStation(airport.getIsPreClearedDestination());
+                airportResponse.setParentMACCode(airport.getMetropolitanAreaCode());
+                airportResponse.setChildrenMACCodes(childMacCodeMap.get(airport.getMetropolitanAreaCode()));
+                airportResponse.setMACCode(airportResponse.getChildrenMACCodes() == null ? false : true);
+                airportResponse.setRegionCodes(
+                        countryList.stream().filter(code -> code.getCountryCode2().equalsIgnoreCase(airport.getCountryCode2()))
+                                .findAny().get().getRegionCodes());
+                originResponseHashMap.put(airportResponse.getCode(), airportResponse);
+            }
             airportResponse = new AirportResponse();
             airportResponse.setCode(airport.getIATAAirportCode());
             airportResponse.setCity(airport.getCityName());
@@ -170,13 +185,12 @@ public class ODAPITransformImpl implements ODAPITransform {
             airportResponse.setBlueCity(airport.getIsJetBlue());
             airportResponse.setPreClearedStation(airport.getIsPreClearedDestination());
             airportResponse.setParentMACCode(airport.getMetropolitanAreaCode());
-            airportResponse.setChildrenMACCodes(childMacCodeMap.get(airport.getMetropolitanAreaCode()));
+            airportResponse.setChildrenMACCodes(null);
             airportResponse.setMACCode(airportResponse.getChildrenMACCodes() == null ? false : true);
             airportResponse.setRegionCodes(
                     countryList.stream().filter(code -> code.getCountryCode2().equalsIgnoreCase(airport.getCountryCode2()))
                             .findAny().get().getRegionCodes());
             originResponseHashMap.put(airportResponse.getCode(), airportResponse);
-
         }
         return originResponseHashMap;
     }
